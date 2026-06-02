@@ -246,15 +246,20 @@ if st.button("Start Discovery", type="primary"):
                 all_listings_sorted = sorted(recommendations, key=lambda x: (getattr(x, 'ai_analyzed', False), x.score), reverse=True)
                 # Apply category filter for display if not 'All'
                 if focus_category and focus_category != "All":
-                    display_source = [
+                    filtered_source = [
                         l for l in all_listings_sorted if matches_category(l, focus_category)
                     ]
                 else:
-                    display_source = all_listings_sorted
-                ai_ranked = [l for l in display_source if getattr(l, 'ai_analyzed', False)]
+                    filtered_source = all_listings_sorted
+                # Always backfill to 10 from overall scored list
+                combined_source = filtered_source[:]
+                if len(combined_source) < 10:
+                    combined_source += [l for l in all_listings_sorted if l not in combined_source][: 10 - len(combined_source)]
+
+                ai_ranked = [l for l in combined_source if getattr(l, 'ai_analyzed', False)]
                 top_10_list = ai_ranked[:10]
                 if len(top_10_list) < 10:
-                    filler = [l for l in display_source if l not in top_10_list][: 10 - len(top_10_list)]
+                    filler = [l for l in combined_source if l not in top_10_list][: 10 - len(top_10_list)]
                     top_10_list = top_10_list + filler
 
                 # Build table rows from top 10 only
@@ -279,16 +284,16 @@ if st.button("Start Discovery", type="primary"):
                         "Why": r.recommendation_reason[:40] + "..." if len(r.recommendation_reason) > 40 else r.recommendation_reason
                     })
                 
-                # Show message (note if filter restricted the set)
+                # Always show Top 10 message
                 if focus_category and focus_category != "All":
-                    st.success(f"Showing top {len(display_data)} in category '{focus_category}'")
+                    st.success(f"Showing Top 10 (prioritised for '{focus_category}', backfilled from overall if needed)")
                 else:
-                    st.success(f"Showing top {len(display_data)} businesses based on investment score")
+                    st.success("Showing Top 10 businesses based on investment score")
                 
                 # Use st.dataframe with dynamic height to avoid empty rows
                 row_height = 38
                 base_height = 60  # header + padding
-                top10_height = min(600, base_height + row_height * max(1, len(display_data)))
+                top10_height = min(600, base_height + row_height * 10)
                 st.dataframe(
                     display_data,
                     width="stretch",
