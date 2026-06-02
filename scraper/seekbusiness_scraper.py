@@ -357,6 +357,8 @@ class SeekBusinessScraper:
         patterns = [
             r'listed\s+(\d+)\s+days?\s+ago',
             r'(\d+)\s+days?\s+ago',
+            r'(\d+)\s+hours?\s+ago',
+            r'(\d+)\s+minutes?\s+ago',
             r'listed\s+yesterday',
             r'listed\s+today',
             r'added\s+(\d+)\s+days?\s+ago',
@@ -364,7 +366,7 @@ class SeekBusinessScraper:
         
         text_lower = text.lower()
         
-        if 'today' in text_lower or 'just now' in text_lower:
+        if 'today' in text_lower or 'just now' in text_lower or 'minutes ago' in text_lower or 'hours ago' in text_lower:
             return 0
         if 'yesterday' in text_lower:
             return 1
@@ -373,6 +375,8 @@ class SeekBusinessScraper:
             match = re.search(pattern, text_lower)
             if match:
                 try:
+                    # if the match is hours/minutes it will return 0 due to early checks,
+                    # but just in case:
                     return int(match.group(1))
                 except:
                     pass
@@ -525,39 +529,19 @@ class SeekBusinessScraper:
     
     def _extract_description(self, card) -> str:
         """Extract description from card text."""
-        # Get the main text content, excluding known elements
-        # The description is usually in a span without specific data-testid
-        # after the location/price info
-        
-        # Try to find the description span (has text but no special data-testid)
-        all_spans = card.find_all('span', class_=re.compile('_1dmkaif'))
-        for span in all_spans:
-            text = span.get_text(strip=True)
-            # Skip if it's price, location, category, or "Franchise" tag
-            if (re.search(r'^\$', text) or 
-                re.search(r'NSW|VIC|QLD|WA|SA|TAS|ACT', text) or
-                re.search(r'Retail|Food|Franchise New|more >>', text) or
-                len(text) < 30):
-                continue
+        # Try to gather larger chunks of text
+        full_text = card.get_text(separator=' | ', strip=True)
+        parts = full_text.split(' | ')
+        desc_candidates = []
+        for part in parts:
+            if (len(part) > 60 and
+                not re.search(r'^\$', part) and
+                part not in ['Featured', 'Franchise New', 'Enquire', 'Save', 'more\xa0››']):
+                desc_candidates.append(part)
+
+        if desc_candidates:
+            # The longest candidate is likely the description
+            longest = max(desc_candidates, key=len)
+            return longest[:500].replace('more\xa0››', '').strip()
             
-            # This might be the description
-            if len(text) > 50 and len(text) < 500:
-                return text[:200]
-        
-        # Fallback: get all text and clean it up
-        full_text = card.get_text(separator=' ', strip=True)
-        # Remove common noise
-        full_text = re.sub(r'Featured', '', full_text)
-        full_text = re.sub(r'Franchise New', '', full_text)
-        full_text = re.sub(r'Enquire', '', full_text)
-        full_text = re.sub(r'Save', '', full_text)
-        full_text = re.sub(r'more\s*››', '', full_text)
-        
-        # Find a sentence that looks like a description
-        sentences = full_text.split('.')
-        for sentence in sentences:
-            sentence = sentence.strip()
-            if len(sentence) > 50 and len(sentence) < 300:
-                return sentence[:200]
-        
         return ""

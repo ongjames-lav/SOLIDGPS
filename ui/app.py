@@ -294,27 +294,29 @@ if st.button("Start Discovery", type="primary"):
                 row_height = 38
                 base_height = 60  # header + padding
                 top10_height = min(600, base_height + row_height * 10)
-                st.dataframe(
+
+                st.data_editor(
                     display_data,
-                    width="stretch",
+                    use_container_width=True,
                     hide_index=True,
                     height=top10_height,
+                    disabled=True,
                     column_config={
                         "Rank": st.column_config.NumberColumn("#", width=50),
-                        "Score": st.column_config.ProgressColumn("Score", min_value=0, max_value=100, width=120),
-                        "Tier": st.column_config.TextColumn("Tier", width=90),
+                        "Score": st.column_config.ProgressColumn("Score", format="%f", min_value=0, max_value=100, width=100),
+                        "Tier": st.column_config.TextColumn("Tier", width=80),
                         "Business": st.column_config.TextColumn("Business Name", width=250),
-                        "Category": st.column_config.TextColumn("Category", width=120),
-                        "Location": st.column_config.TextColumn("Location", width=150),
+                        "Category": st.column_config.TextColumn("Category", width=140),
+                        "Location": st.column_config.TextColumn("Location", width=120),
                         "Price": st.column_config.TextColumn("Price", width=100),
                         "Listed": st.column_config.TextColumn("Age", width=70),
-                        "Why": st.column_config.TextColumn("Why", width=180)
+                        "Why": st.column_config.TextColumn("AI Insight", width=300)
                     }
                 )
                 
                 # Detailed Profiles Section
-                st.subheader("Detailed Business Profiles")
-                st.markdown("*Expand for full details and AI investment analysis*")
+                st.subheader("Deep Dive: Top Opportunities")
+                st.markdown("*Click to expand and read full investment rationale based on business fundamentals.*")
                 
                 # Show top 8 from the top 10 list
                 top_picks = top_10_list[:8]
@@ -340,9 +342,13 @@ if st.button("Start Discovery", type="primary"):
                         with col2:
                             st.markdown(f"<h2 style='color: {score_color}; text-align: center;'>{biz.score:.0f}/100</h2>", unsafe_allow_html=True)
                             # Show analysis type badge
-                            analysis_badge = "AI-Powered Analysis" if getattr(biz, 'ai_analyzed', False) else "Smart Score"
+                            analysis_badge = "AI Financial Analysis" if getattr(biz, 'ai_analyzed', False) else "Smart Financial Score"
                             st.caption(f"**{analysis_badge}**")
-                            st.info(biz.recommendation_reason)
+
+                            if getattr(biz, 'ai_analyzed', False):
+                                st.info(f"**Investment Thesis:** {biz.recommendation_reason}")
+                            else:
+                                st.warning(f"**Algorithm Indicators:** {biz.recommendation_reason}")
                             
                             if st.button("View Listing", key=f"view_{i}_{biz.dealer_id}"):
                                 st.markdown(f"[{biz.url}]({biz.url})")
@@ -465,13 +471,13 @@ else:
     
     1. **Scrape** — Searches SeekBusiness.com.au for recent business-for-sale listings
     2. **Filter** — Applies your criteria (price range, location, category)
-    3. **AI Score** — Uses AI to identify investment opportunities worth investigating
-    4. **Recommend** — Displays ranked list with reasoning
+    3. **AI Score** — Uses AI to identify solid investment opportunities by evaluating profitability, price point, sector, and transparency.
+    4. **Recommend** — Displays ranked list with transparent reasoning.
     
     ### What Makes a Good Opportunity?
     
-    - **Growth sectors** — Technology, healthcare, logistics, essential services
-    - **Sweet spot pricing** — $100k-$500k range for accessible entry
-    - **Metro locations** — Established customer bases and market access
-    - **Fresh listings** — First-mover advantage for good deals
+    - **Clear Financials** — Explicit mentions of net profit or strong revenue.
+    - **Realistic Price** — Valid asking price compared to the scope of operations.
+    - **Essential Needs** — Essential services generally offer more stability.
+    - **Under Management** — Fully or partially staff-managed businesses indicate operational maturity.
     """)
