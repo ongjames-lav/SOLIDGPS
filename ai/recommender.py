@@ -38,10 +38,10 @@ class BusinessRecommender:
         # Filter by basic criteria first
         filtered = listings.copy()
         
-        # Limit to top 5 for AI analysis (optimize for slow locally-hosted model)
-        if len(filtered) > 5:
-            print(f"Limiting AI analysis to top 5 of {len(filtered)} listings (60s timeout configured)")
-            filtered = filtered[:5]
+        # Limit to top 10 for AI analysis (optimize for locally-hosted model)
+        if len(filtered) > 10:
+            print(f"Limiting AI analysis to top 10 of {len(filtered)} listings (60s timeout configured)")
+            filtered = filtered[:10]
         
         if min_price is not None:
             filtered = [b for b in filtered if b.price and b.price >= min_price]
@@ -116,20 +116,16 @@ class BusinessRecommender:
             if not ai_results:
                 print("AI returned no scorable results, using fallback scoring")
                 # Mark all as fallback (not AI analyzed)
-            for listing in filtered:
-                listing.ai_analyzed = False
-            
-            # Mark all as fallback and return
-            for listing in all_scored:
-                listing.ai_analyzed = False
-            return all_scored
+                for listing in filtered:
+                    listing.ai_analyzed = False
+                return self._fallback_scoring(filtered)
             
             # Mark listings that got AI analysis
             for listing in filtered:
                 listing.ai_analyzed = listing.dealer_id in ai_results
             
-            # Apply AI scores to the candidates, merge back into all_scored
-            return self._apply_scores_to_all(all_scored, ai_results)
+            # Apply AI scores to these listings
+            return self._apply_scores(filtered, ai_results)
             
         except Exception as e:
             print(f"AI analysis failed: {e}")
@@ -139,11 +135,7 @@ class BusinessRecommender:
             # Mark all as fallback (not AI analyzed)
             for listing in filtered:
                 listing.ai_analyzed = False
-            
-            # Mark all as fallback and return
-            for listing in all_scored:
-                listing.ai_analyzed = False
-            return all_scored
+            return self._fallback_scoring(filtered)
     
     def _format_for_ai(self, listings: List[BusinessListing]) -> str:
         """Format listings for AI consumption - lightweight version."""
