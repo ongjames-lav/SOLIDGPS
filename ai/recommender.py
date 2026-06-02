@@ -77,19 +77,21 @@ class BusinessRecommender:
                         "content": """You are a business investment analyst. 
                         Your job is to identify which businesses-for-sale are worth investigating as investment opportunities.
                         
+                        Evaluate each business practically to determine if it's a great fit for investment.
                         Consider:
-                        - Industry attractiveness (growth sectors, essential services)
-                        - Price point relative to market norms
-                        - Location (major metro vs regional tradeoffs)
-                        - Business type (franchise vs independent pros/cons)
-                        - Revenue indicators mentioned in description
-                        - Red flags in the listing
+                        - Explicitly mentioned revenue or net profit (High signal)
+                        - Price point compared to potential returns or growth (P.O.A without context is a negative signal)
+                        - Location advantages (metro vs regional - focus on profitability rather than penalizing one over the other)
+                        - Essential services vs highly discretionary sectors
+                        - Turn-key operations vs "shell" businesses without existing traction
+
+                        Give higher scores to businesses that provide clear indicators of profitability and sustainable revenue.
                         
                         Return a JSON array with ALL businesses analyzed.
                         
                         Format: [{"dealer_id": "ID", "score": 75, "reason": "explanation"}]
                         
-                        Score every business 0-100. Include all results."""
+                        Score every business 0-100 based strictly on business fundamentals and clarity. Include all results."""
                     },
                     {
                         "role": "user",
@@ -253,40 +255,43 @@ class BusinessRecommender:
     def _fallback_scoring(self, listings: List[BusinessListing]) -> List[BusinessListing]:
         """Basic scoring when AI is unavailable."""
         for listing in listings:
-            score = 50  # Base score
+            score = 40  # Base score
+            reasons = []
             
             # Price-based scoring (if available)
             if listing.price:
-                if 100000 <= listing.price <= 500000:
-                    score += 15  # Sweet spot for small-medium acquisitions
+                if 50000 <= listing.price <= 500000:
+                    score += 20  # Sweet spot for small-medium acquisitions
+                    reasons.append("Accessible price point")
                 elif listing.price > 500000:
-                    score += 10  # Larger opportunity
-            
-            # Location bonus
-            major_cities = ['Sydney', 'Melbourne', 'Brisbane', 'Perth', 'Adelaide']
-            if any(city in listing.location for city in major_cities):
-                score += 10  # Metro market access
+                    score += 15  # Larger opportunity
+                    reasons.append("Established scale")
+            else:
+                score -= 10  # Penalty for P.O.A as it lacks transparency
+                reasons.append("Price on Application (lower transparency)")
             
             # Recency bonus
             if listing.days_listed <= 2:
                 score += 10  # Fresh listing
-            
-            # Category bonus
-            growth_categories = ['technology', 'healthcare', 'logistics', 'e-commerce']
-            if listing.category and any(cat in listing.category.lower() for cat in growth_categories):
-                score += 10
-            
-            listing.score = min(score, 100)
-            
-            # Generate reason
-            reasons = []
-            if listing.price and 100000 <= listing.price <= 500000:
-                reasons.append("Good price point")
-            if any(city in listing.location for city in major_cities):
-                reasons.append("Metro location")
-            if listing.days_listed <= 2:
                 reasons.append("Fresh listing")
             
-            listing.recommendation_reason = ", ".join(reasons) if reasons else "Standard opportunity"
+            # Category bonus
+            growth_categories = ['technology', 'healthcare', 'logistics', 'e-commerce', 'education', 'food', 'hospitality']
+            if listing.category and any(cat in listing.category.lower() for cat in growth_categories):
+                score += 15
+                reasons.append(f"In-demand category")
+
+            # Description signals
+            if listing.description:
+                desc = listing.description.lower()
+                if 'profit' in desc or 'net' in desc or 'takings' in desc or 'revenue' in desc:
+                    score += 20
+                    reasons.append("Financial indicators mentioned")
+                if 'under management' in desc or 'staff managed' in desc:
+                    score += 10
+                    reasons.append("Under management")
+            
+            listing.score = min(max(score, 10), 100)
+            listing.recommendation_reason = " | ".join(reasons) if reasons else "Standard opportunity without clear financial signals"
         
         return sorted(listings, key=lambda x: x.score, reverse=True)
