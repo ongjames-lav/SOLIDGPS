@@ -71,16 +71,56 @@ if 'last_scrape_time' not in st.session_state:
 # Page config
 st.set_page_config(
     page_title="Business Opportunity Finder",
-    page_icon=None,
-    layout="wide"
+    page_icon="💼",
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
+
+# Custom CSS for a more "Pro Max" premium UI
+st.markdown("""
+    <style>
+        .main {
+            background-color: #f8f9fa;
+        }
+        h1 {
+            color: #1E3A8A;
+            font-weight: 800;
+            padding-bottom: 0px;
+            margin-bottom: 0px;
+        }
+        .subtitle {
+            color: #64748B;
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+            font-weight: 500;
+        }
+        div[data-testid="stMetricValue"] {
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: #0F172A;
+        }
+        .stButton>button {
+            border-radius: 8px;
+            font-weight: 600;
+            padding: 0.5rem 1rem;
+        }
+        .css-1v0mbdj.e115fcil1 {
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            border: 1px solid #E2E8F0;
+        }
+    </style>
+""", unsafe_allow_html=True)
 
 # Title
 st.title("Business Opportunity Finder")
-st.markdown("Discover businesses for sale worth investigating as investment opportunities")
+st.markdown('<p class="subtitle">AI-Powered Discovery Engine for Premium Business Investments</p>', unsafe_allow_html=True)
 
 # Sidebar filters
-st.sidebar.header("Search Filters")
+with st.sidebar:
+    st.markdown("### 🎯 Search Criteria")
+    st.markdown("Configure your investment parameters.")
+    st.divider()
 
 days_back = st.sidebar.slider(
     "Days to Look Back",
@@ -113,14 +153,16 @@ focus_category = st.sidebar.selectbox(
     help="Filter by business type"
 )
 
-use_ai = st.sidebar.checkbox(
-    "Use AI Recommendations",
+st.sidebar.divider()
+
+use_ai = st.sidebar.toggle(
+    "Enable Deep AI Analysis",
     value=True,
-    help="Use AI to score and recommend businesses (uncheck for basic filtering)"
+    help="Use AI to score and recommend businesses based on financial fundamentals"
 )
 
 # Main action
-if st.button("Start Discovery", type="primary"):
+if st.sidebar.button("🚀 Start Discovery", type="primary", use_container_width=True):
     
     # Progress tracking
     progress_bar = st.progress(0)
@@ -202,23 +244,27 @@ if st.button("Start Discovery", type="primary"):
             progress_bar.progress(100)
             
             # Summary metrics
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                st.metric("Total Found", len(result.listings))
-            with col2:
-                st.metric("Recommended", len(recommendations))
-            with col3:
+            st.markdown("### 📊 Market Overview")
+            metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
+
+            with metric_col1:
+                st.metric("Total Matches", len(result.listings), delta=None)
+            with metric_col2:
+                st.metric("Curated Picks", len(recommendations), delta="AI Shortlisted" if use_ai else "Filtered")
+            with metric_col3:
                 if recommendations:
                     avg_score = sum(r.score for r in recommendations) / len(recommendations)
-                    st.metric("Avg Score", f"{avg_score:.1f}")
+                    st.metric("Avg Viability Score", f"{avg_score:.1f}/100")
                 else:
-                    st.metric("Avg Score", "N/A")
-            with col4:
+                    st.metric("Avg Viability Score", "N/A")
+            with metric_col4:
                 top_state = max(
                     set(r.state for r in recommendations),
                     key=lambda s: sum(1 for r in recommendations if r.state == s)
                 ) if recommendations else "N/A"
-                st.metric("Top State", top_state)
+                st.metric("Hot Market", top_state)
+
+            st.divider()
             
             # All Listings Table (Demo Mode - Show All 100)
             # Store results in session state for history
@@ -286,11 +332,11 @@ if st.button("Start Discovery", type="primary"):
                 
                 # Always show Top 10 message
                 if focus_category and focus_category != "All":
-                    st.success(f"Showing Top 10 (prioritised for '{focus_category}', backfilled from overall if needed)")
+                    st.info(f"Showing Top 10 (prioritised for '{focus_category}', backfilled from overall if needed)")
                 else:
-                    st.success("Showing Top 10 businesses based on investment score")
+                    st.info("Showing Top 10 businesses based on investment score")
                 
-                # Use st.dataframe with dynamic height to avoid empty rows
+                # Render table
                 row_height = 38
                 base_height = 60  # header + padding
                 top10_height = min(600, base_height + row_height * 10)
@@ -314,9 +360,11 @@ if st.button("Start Discovery", type="primary"):
                     }
                 )
                 
+                st.divider()
+
                 # Detailed Profiles Section
-                st.subheader("Deep Dive: Top Opportunities")
-                st.markdown("*Click to expand and read full investment rationale based on business fundamentals.*")
+                st.subheader("🔍 Deep Dive: Top Opportunities")
+                st.markdown("Click to expand and read full investment rationale based on business fundamentals.")
                 
                 # Show top 8 from the top 10 list
                 top_picks = top_10_list[:8]
@@ -349,12 +397,12 @@ if st.button("Start Discovery", type="primary"):
                                 st.info(f"**Investment Thesis:** {biz.recommendation_reason}")
                             else:
                                 st.warning(f"**Algorithm Indicators:** {biz.recommendation_reason}")
-                            
-                            if st.button("View Listing", key=f"view_{i}_{biz.dealer_id}"):
-                                st.markdown(f"[{biz.url}]({biz.url})")
+
+
+                            st.markdown(f"[🔗 View Original Listing]({biz.url})", unsafe_allow_html=True)
                             
                             # Action buttons - use index to ensure unique key
-                            if st.button("Copy Info", key=f"copy_{i}_{biz.dealer_id}"):
+                            if st.button("📋 Copy Summary", key=f"copy_{i}_{biz.dealer_id}"):
                                 price_str = f"${biz.price:,}" if biz.price else "P.O.A"
                                 info = f"{biz.name} | {biz.location}, {biz.state} | {price_str} | {biz.category or 'Unknown'}"
                                 st.code(info)
